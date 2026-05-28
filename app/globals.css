@@ -1,26 +1,172 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Sistema de diseño — "Bolsa Bonita" (tienda de bolsas decorativas)
+  Estética cálida, boutique, premium. Paleta terracota/rosa sobre marfil.
+  Colores en OKLCH. Tokens consumidos por shadcn/ui.
+*/
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.75rem;
+
+  /* Superficies (neutros fríos para armonizar con violeta/menta) */
+  --background: oklch(0.99 0.003 285);
+  --foreground: oklch(0.21 0.02 285);    /* casi negro frío */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 285);
+
+  /* Marca */
+  --primary: #7c3aed;                     /* violeta */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: #5fe3c0;                   /* menta */
+  --secondary-foreground: oklch(0.3 0.06 178); /* verde-azulado profundo */
+  --accent: oklch(0.95 0.03 300);         /* lavanda muy clara (hovers) */
+  --accent-foreground: oklch(0.4 0.16 295);
+
+  /* Neutros */
+  --muted: oklch(0.97 0.004 285);
+  --muted-foreground: oklch(0.52 0.02 285);
+  --border: oklch(0.91 0.006 285);
+  --input: oklch(0.91 0.006 285);
+  --ring: #7c3aed;
+
+  /* Estados */
+  --destructive: oklch(0.58 0.2 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.6 0.13 162);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.79 0.14 80);
+  --warning-foreground: oklch(0.28 0.04 70);
+
+  /* Gráficas / acentos */
+  --chart-1: #7c3aed;
+  --chart-2: #5fe3c0;
+  --chart-3: oklch(0.62 0.19 265);
+  --chart-4: oklch(0.7 0.16 330);
+  --chart-5: oklch(0.76 0.14 60);
+}
+
+.dark {
+  --background: oklch(0.19 0.02 285);
+  --foreground: oklch(0.95 0.01 285);
+  --card: oklch(0.23 0.02 285);
+  --card-foreground: oklch(0.95 0.01 285);
+  --popover: oklch(0.23 0.02 285);
+  --popover-foreground: oklch(0.95 0.01 285);
+
+  --primary: oklch(0.66 0.2 295);          /* violeta más claro sobre fondo oscuro */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.32 0.05 195);
+  --secondary-foreground: oklch(0.92 0.04 180);
+  --accent: oklch(0.32 0.05 295);
+  --accent-foreground: oklch(0.92 0.03 300);
+
+  --muted: oklch(0.3 0.015 285);
+  --muted-foreground: oklch(0.7 0.015 285);
+  --border: oklch(0.34 0.015 285);
+  --input: oklch(0.34 0.015 285);
+  --ring: oklch(0.66 0.2 295);
+
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.97 0.01 285);
+  --success: oklch(0.66 0.13 162);
+  --success-foreground: oklch(0.16 0.02 162);
+  --warning: oklch(0.78 0.14 80);
+  --warning-foreground: oklch(0.25 0.04 70);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-display), Georgia, "Times New Roman", serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Foco accesible y visible en toda la app (WCAG AA) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-page {
+    padding-inline: 1.5rem;
+  }
 }

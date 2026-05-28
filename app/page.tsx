@@ -1,65 +1,149 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Truck, ShieldCheck, Sparkles, Gift } from "lucide-react";
 
-export default function Home() {
+import { getDestacados, getNovedades } from "@/lib/api/catalogo";
+import { buildCategoriaTree } from "@/lib/categorias";
+import { Button } from "@/components/ui/button";
+import { ProductGrid } from "@/components/product/product-grid";
+import { CategoryTile } from "@/components/catalog/category-tile";
+
+export default async function HomePage() {
+  const [destacados, novedades] = await Promise.all([
+    getDestacados(8),
+    getNovedades(4),
+  ]);
+  const categorias = buildCategoriaTree();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      {/* Hero */}
+      <section className="border-b bg-gradient-to-br from-accent/50 via-background to-secondary/40">
+        <div className="container-page grid items-center gap-8 py-12 md:grid-cols-2 md:py-20">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Sparkles className="size-3.5" /> Nuevos diseños cada temporada
+            </span>
+            <h1 className="mt-4 font-display text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
+              Bolsas y detalles decorativos
+            </h1>
+            <p className="mt-4 max-w-md text-lg text-muted-foreground">
+              Bolsas, cajas, moños y más. Mayoreo y menudeo.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/productos">
+                  Explorar productos <ArrowRight />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/categoria/bolsas-de-regalo">Bolsas de regalo</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="relative hidden aspect-square md:block">
+            <div className="absolute inset-0 grid grid-cols-2 gap-4">
+              {[0, 1, 2, 3].map((i) => {
+                const hue = (i * 60 + 20) % 360;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center justify-center rounded-2xl"
+                    style={{
+                      background: `linear-gradient(135deg, hsl(${hue} 50% 88%), hsl(${(hue + 40) % 360} 55% 80%))`,
+                    }}
+                  >
+                    <Gift
+                      className="size-12"
+                      style={{ color: `hsl(${hue} 45% 35%)` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Novedades */}
+      {novedades.length > 0 && (
+        <section className="container-page py-6">
+          <div className="mb-6 flex items-end justify-between">
+            <h2 className="font-display text-2xl font-semibold">Novedades</h2>
+            <Link
+              href="/productos?orden=nuevos"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              Ver más <ArrowRight className="size-4" />
+            </Link>
+          </div>
+          <ProductGrid productos={novedades} />
+        </section>
+      )}
+
+      {/* Beneficios */}
+      <section className="container-page py-12">
+        <div className="grid gap-4 rounded-2xl border bg-card p-6 sm:grid-cols-3">
+          {[
+            {
+              icon: Truck,
+              title: "Envío a todo el país",
+              desc: "Recibe en tu casa o retira en tienda.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "Pago seguro",
+              desc: "Transferencia o contra entrega.",
+            },
+            {
+              icon: Sparkles,
+              title: "Calidad garantizada",
+              desc: "Materiales premium y diseños únicos.",
+            },
+          ].map((b) => (
+            <div key={b.title} className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <b.icon className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold">{b.title}</h3>
+                <p className="text-sm text-muted-foreground">{b.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      </main>
+      </section>
+
+      {/* Destacados */}
+      <section className="container-page py-6">
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="font-display text-2xl font-semibold">Más vendidos</h2>
+          <Link
+            href="/productos"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            Ver todo <ArrowRight className="size-4" />
+          </Link>
+        </div>
+        <ProductGrid productos={destacados} />
+      </section>
+
+      {/* Categorías */}
+      <section className="container-page py-12 pb-16">
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="font-display text-2xl font-semibold">Categorías</h2>
+          <Link
+            href="/productos"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            Ver todo <ArrowRight className="size-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {categorias.slice(0, 4).map((c, i) => (
+            <CategoryTile key={c.id_categoria} categoria={c} index={i} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
