@@ -89,13 +89,15 @@ export default function ConfirmacionPage() {
         <Separator className="my-3" />
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal (sin IVA)</span>
-            <span>{formatPrice(pedido.subtotal)}</span>
+            <span>Subtotal</span>
+            <span>{formatPrice(pedido.subtotal + pedido.iva)}</span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>IVA (13%)</span>
-            <span>{formatPrice(pedido.iva)}</span>
-          </div>
+          {pedido.descuento > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Descuento</span>
+              <span>−{formatPrice(pedido.descuento)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-muted-foreground">
             <span>{METODO_ENTREGA_LABEL[pedido.metodo_entrega]}</span>
             <span>{pedido.costo_envio === 0 ? "Gratis" : formatPrice(pedido.costo_envio)}</span>

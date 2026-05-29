@@ -1,20 +1,56 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
 import { Package, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 import { formatPrice, formatDate } from "@/lib/utils";
-import { PEDIDOS_DEMO } from "@/lib/mock/data";
+import type { Pedido } from "@/types";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { getMisPedidos } from "@/lib/api/pedidos";
+import { ApiError } from "@/lib/api/client";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PedidosPage() {
-  const pedidos = PEDIDOS_DEMO;
+  const token = useAuthStore((s) => s.token);
+  const [pedidos, setPedidos] = React.useState<Pedido[]>([]);
+  const [cargando, setCargando] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!token) return;
+    let cancel = false;
+    getMisPedidos(token)
+      .then((p) => {
+        if (!cancel) setPedidos(p);
+      })
+      .catch((err) => {
+        if (!cancel)
+          toast.error("No se pudieron cargar tus pedidos", {
+            description: err instanceof ApiError ? err.message : undefined,
+          });
+      })
+      .finally(() => {
+        if (!cancel) setCargando(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [token]);
 
   return (
     <div>
       <h1 className="mb-6 font-display text-2xl font-semibold">Mis pedidos</h1>
 
-      {pedidos.length === 0 ? (
+      {cargando ? (
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : pedidos.length === 0 ? (
         <EmptyState
           icon={Package}
           title="Aún no tienes pedidos"

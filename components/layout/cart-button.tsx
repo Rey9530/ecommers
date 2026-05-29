@@ -124,7 +124,7 @@ export function CartButton() {
 
             <SheetFooter className="border-t">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal (IVA incl.)</span>
+                <span className="text-muted-foreground">Subtotal</span>
                 <span className="text-lg font-semibold">
                   {formatPrice(subtotal)}
                 </span>

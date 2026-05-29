@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { ProductoLista } from "@/types";
 import { ProductThumb } from "@/components/common/product-thumb";
 import { PriceDisplay } from "@/components/common/price-display";
+import { RatingStars } from "@/components/common/rating-stars";
 import { StockBadge } from "@/components/product/stock-badge";
 import { WishlistButton } from "@/components/product/wishlist-button";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
@@ -68,10 +69,16 @@ export function ProductCard({ producto, className, priority }: ProductCardProps)
         >
           {producto.nombre}
         </Link>
+        {!!producto.total_resenas && producto.total_resenas > 0 && (
+          <RatingStars
+            value={producto.calificacion_promedio ?? 0}
+            count={producto.total_resenas}
+          />
+        )}
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <PriceDisplay
             precio={producto.precio}
-            precioAnterior={producto.precio_anterior}
+            precioAnterior={producto.precio_anterior ?? undefined}
             size="sm"
           />
           <StockBadge enStock={producto.en_stock} />

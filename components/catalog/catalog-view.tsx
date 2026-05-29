@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { PackageSearch } from "lucide-react";
 
 import type { Paginated, ProductoLista } from "@/types";
-import { buildCategoriaTree } from "@/lib/categorias";
+import { buildCategoriaTree, getCategorias } from "@/lib/categorias";
 import { getRangoPrecios } from "@/lib/api/catalogo";
 import { ProductGrid } from "@/components/product/product-grid";
 import { FilterSidebar } from "@/components/catalog/filter-sidebar";
@@ -35,7 +35,7 @@ interface CatalogViewProps {
   emptyState?: React.ReactNode;
 }
 
-export function CatalogView({
+export async function CatalogView({
   titulo,
   descripcion,
   resultado,
@@ -43,8 +43,11 @@ export function CatalogView({
   breadcrumbs,
   emptyState,
 }: CatalogViewProps) {
-  const categorias = buildCategoriaTree();
-  const rango = getRangoPrecios();
+  const [categoriasPlanas, rango] = await Promise.all([
+    getCategorias(),
+    getRangoPrecios(),
+  ]);
+  const categorias = buildCategoriaTree(categoriasPlanas);
   const { data: productos, meta } = resultado;
 
   return (

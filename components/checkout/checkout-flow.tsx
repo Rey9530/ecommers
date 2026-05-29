@@ -20,11 +20,25 @@ import {
 } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useOrderStore } from "@/lib/store/order-store";
-import { DIRECCIONES_DEMO } from "@/lib/mock/data";
-import { buildPedido } from "@/lib/checkout";
-import type { MetodoEntrega, MetodoPago, TipoDocumento } from "@/types";
+import { getSessionId } from "@/lib/session";
+import { getDirecciones } from "@/lib/api/direcciones";
+import {
+  sincronizarCarrito,
+  checkout as checkoutApi,
+  aplicarCupon,
+  quitarCupon,
+} from "@/lib/api/pedidos";
+import { ApiError } from "@/lib/api/client";
+import type {
+  CheckoutDto,
+  Direccion,
+  MetodoEntrega,
+  MetodoPago,
+  TipoDocumento,
+} from "@/types";
 
 import { OrderSummary } from "@/components/checkout/order-summary";
+import { MunicipioSelect } from "@/components/common/municipio-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,10 +108,12 @@ export function CheckoutFlow() {
   const hydrated = useCartStore((s) => s.hydrated);
   const clear = useCartStore((s) => s.clear);
   const cliente = useAuthStore((s) => s.cliente);
+  const token = useAuthStore((s) => s.token);
   const authHydrated = useAuthStore((s) => s.hydrated);
   const setUltimo = useOrderStore((s) => s.setUltimo);
 
   const logueado = authHydrated && !!cliente;
+  const [direcciones, setDirecciones] = React.useState<Direccion[]>([]);
 
   // Estado del formulario
   const [email, setEmail] = React.useState("");
@@ -112,24 +128,41 @@ export function CheckoutFlow() {
   const [envNombre, setEnvNombre] = React.useState("");
   const [envTel, setEnvTel] = React.useState("");
   const [envDir, setEnvDir] = React.useState("");
-  const [envMuni, setEnvMuni] = React.useState("");
+  const [envMunicipio, setEnvMunicipio] = React.useState<number | null>(null);
   const [envRef, setEnvRef] = React.useState("");
   const [pago, setPago] = React.useState<MetodoPago>("TRANSFERENCIA");
   const [nota, setNota] = React.useState("");
   const [terminos, setTerminos] = React.useState(false);
   const [enviando, setEnviando] = React.useState(false);
+  const [cupon, setCupon] = React.useState("");
+  const [cuponAplicado, setCuponAplicado] = React.useState<string | null>(null);
+  const [descuento, setDescuento] = React.useState(0);
+  const [aplicandoCupon, setAplicandoCupon] = React.useState(false);
 
-  // Prefill al cargar la sesión (ajuste de estado en render, sin efecto).
+  // Prefill de contacto al cargar la sesión (ajuste de estado en render, sin efecto).
   const [prefillId, setPrefillId] = React.useState<number | null>(null);
   if (logueado && cliente && cliente.id_cliente !== prefillId) {
     setPrefillId(cliente.id_cliente);
     setEmail(cliente.email);
     setTelefono(cliente.telefono ?? "");
-    const pred = DIRECCIONES_DEMO.find(
-      (d) => d.es_predeterminada && d.tipo === "ENVIO"
-    );
-    if (pred) setIdDireccion(pred.id_direccion);
   }
+
+  // Cargar direcciones guardadas (logueado) y preseleccionar la predeterminada.
+  React.useEffect(() => {
+    if (!logueado || !token) return;
+    let cancel = false;
+    getDirecciones(token)
+      .then((dirs) => {
+        if (cancel) return;
+        setDirecciones(dirs);
+        const pred = dirs.find((d) => d.es_predeterminada && d.tipo === "ENVIO");
+        if (pred) setIdDireccion(pred.id_direccion);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [logueado, token]);
 
   if (!hydrated || !authHydrated) {
     return (
@@ -154,7 +187,7 @@ export function CheckoutFlow() {
     );
   }
 
-  const direccionesEnvio = DIRECCIONES_DEMO.filter((d) => d.tipo === "ENVIO");
+  const direccionesEnvio = direcciones.filter((d) => d.tipo === "ENVIO");
 
   function validar(): string | null {
     if (!email.trim()) return "Ingresa un correo de contacto.";
@@ -169,7 +202,38 @@ export function CheckoutFlow() {
     return null;
   }
 
-  function finalizar(e: React.FormEvent) {
+  async function aplicarCuponCheckout() {
+    if (!cupon.trim()) return;
+    setAplicandoCupon(true);
+    const ctx = { token, sessionId: getSessionId() };
+    try {
+      await sincronizarCarrito(ctx, items);
+      const carrito = await aplicarCupon(ctx, cupon.trim());
+      setCuponAplicado(carrito.cupon);
+      setDescuento(carrito.descuento);
+      toast.success("Cupón aplicado");
+    } catch (err) {
+      toast.error("Cupón inválido", {
+        description: err instanceof ApiError ? err.message : undefined,
+      });
+    } finally {
+      setAplicandoCupon(false);
+    }
+  }
+
+  async function quitarCuponCheckout() {
+    const ctx = { token, sessionId: getSessionId() };
+    try {
+      await quitarCupon(ctx);
+    } catch {
+      // ignorar
+    }
+    setCuponAplicado(null);
+    setDescuento(0);
+    setCupon("");
+  }
+
+  async function finalizar(e: React.FormEvent) {
     e.preventDefault();
     const error = validar();
     if (error) {
@@ -178,37 +242,51 @@ export function CheckoutFlow() {
     }
     setEnviando(true);
 
-    const dir =
-      logueado && idDireccion
-        ? direccionesEnvio.find((d) => d.id_direccion === idDireccion)
-        : undefined;
+    const usaGuardada = logueado && idDireccion;
+    const ctx = { token, sessionId: getSessionId() };
 
-    // TODO: API — POST /tienda/pedidos/checkout (reserva stock, devuelve el pedido).
-    const pedido = buildPedido({
-      items,
-      subtotal,
-      cliente: logueado ? cliente : null,
-      email,
-      telefono,
-      tipoDoc,
-      fiscalNombre,
-      fiscalNit,
-      fiscalNrc,
-      fiscalGiro,
-      entrega,
-      direccion: dir,
-      envNombre,
-      envTel,
-      envDir,
-      envMuni,
-      envRef,
-      pago,
+    const dto: CheckoutDto = {
+      tipo_documento: tipoDoc,
+      ...(tipoDoc === "CREDITO_FISCAL" && {
+        fiscal_nombre: fiscalNombre,
+        fiscal_nit: fiscalNit,
+        fiscal_nrc: fiscalNrc,
+        fiscal_giro: fiscalGiro,
+      }),
+      metodo_entrega: entrega,
+      ...(entrega === "ENVIO" &&
+        (usaGuardada
+          ? { id_direccion: idDireccion! }
+          : {
+              envio_nombre: envNombre,
+              envio_telefono: envTel,
+              envio_id_municipio: envMunicipio ?? undefined,
+              envio_direccion: envDir,
+              envio_referencia: envRef,
+            })),
+      metodo_pago: pago,
+      email_contacto: email,
+      telefono_contacto: telefono,
       nota,
-    });
+    };
 
-    setUltimo(pedido);
-    clear();
-    router.push(`/checkout/confirmacion/${pedido.numero_pedido}`);
+    try {
+      // Carrito local hasta el checkout: sincronizar, reaplicar cupón y crear el pedido.
+      await sincronizarCarrito(ctx, items);
+      if (cuponAplicado) await aplicarCupon(ctx, cuponAplicado);
+      const pedido = await checkoutApi(ctx, dto);
+      setUltimo(pedido);
+      clear();
+      router.push(`/checkout/confirmacion/${pedido.numero_pedido}`);
+    } catch (err) {
+      setEnviando(false);
+      toast.error("No se pudo completar la compra", {
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Revisa tu conexión e inténtalo de nuevo.",
+      });
+    }
   }
 
   return (
@@ -346,22 +424,21 @@ export function CheckoutFlow() {
               )}
 
               {(!logueado || !idDireccion) && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label className="mb-1.5 block">Nombre de quien recibe *</Label>
-                    <Input value={envNombre} onChange={(e) => setEnvNombre(e.target.value)} />
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label className="mb-1.5 block">Nombre de quien recibe *</Label>
+                      <Input value={envNombre} onChange={(e) => setEnvNombre(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="mb-1.5 block">Teléfono</Label>
+                      <Input value={envTel} onChange={(e) => setEnvTel(e.target.value)} />
+                    </div>
                   </div>
+                  <MunicipioSelect value={envMunicipio} onChange={setEnvMunicipio} />
                   <div>
-                    <Label className="mb-1.5 block">Teléfono</Label>
-                    <Input value={envTel} onChange={(e) => setEnvTel(e.target.value)} />
-                  </div>
-                  <div className="sm:col-span-2">
                     <Label className="mb-1.5 block">Dirección *</Label>
                     <Input value={envDir} onChange={(e) => setEnvDir(e.target.value)} placeholder="Colonia, calle y número" />
-                  </div>
-                  <div>
-                    <Label className="mb-1.5 block">Municipio</Label>
-                    <Input value={envMuni} onChange={(e) => setEnvMuni(e.target.value)} />
                   </div>
                   <div>
                     <Label className="mb-1.5 block">Referencia</Label>
@@ -450,7 +527,43 @@ export function CheckoutFlow() {
 
       {/* Resumen sticky */}
       <div className="lg:sticky lg:top-28 lg:self-start">
-        <OrderSummary items={items} subtotal={subtotal} />
+        <OrderSummary items={items} subtotal={subtotal} descuento={descuento} />
+
+        {/* Cupón */}
+        <div className="mt-4 rounded-xl border bg-card p-4">
+          {cuponAplicado ? (
+            <div className="flex items-center justify-between text-sm">
+              <span>
+                Cupón <strong>{cuponAplicado}</strong> aplicado
+              </span>
+              <button
+                type="button"
+                onClick={quitarCuponCheckout}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                Quitar
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                value={cupon}
+                onChange={(e) => setCupon(e.target.value)}
+                placeholder="Código de descuento"
+                aria-label="Código de descuento"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={aplicarCuponCheckout}
+                disabled={aplicandoCupon || !cupon.trim()}
+              >
+                {aplicandoCupon ? "…" : "Aplicar"}
+              </Button>
+            </div>
+          )}
+        </div>
+
         <Button
           type="submit"
           size="lg"

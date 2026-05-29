@@ -50,7 +50,6 @@ export function CartSummary({
         <span className="font-semibold">Total</span>
         <span className="text-2xl font-semibold">{formatPrice(total)}</span>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">IVA 13% incluido</p>
       {children && <div className="mt-5 space-y-3">{children}</div>}
     </div>
   );

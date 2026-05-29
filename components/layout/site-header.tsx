@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
-import { buildCategoriaTree, categoriaSlug } from "@/lib/categorias";
+import { buildCategoriaTree, categoriaSlug, getCategorias } from "@/lib/categorias";
 import { SearchBar } from "@/components/layout/search-bar";
 import { CartButton } from "@/components/layout/cart-button";
 import { WishlistLink } from "@/components/layout/wishlist-link";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
-export function SiteHeader() {
-  const categorias = buildCategoriaTree();
+export async function SiteHeader() {
+  const categorias = buildCategoriaTree(await getCategorias());
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">

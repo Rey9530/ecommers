@@ -1,10 +1,9 @@
 "use client";
 
 import { Heart } from "lucide-react";
-import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { useWishlistStore } from "@/lib/store/wishlist-store";
+import { useWishlist } from "@/lib/hooks/use-wishlist";
 import type { ProductoDetalle, ProductoLista } from "@/types";
 
 interface WishlistButtonProps {
@@ -18,22 +17,14 @@ export function WishlistButton({
   variant = "icon",
   className,
 }: WishlistButtonProps) {
-  const items = useWishlistStore((s) => s.items);
-  const toggle = useWishlistStore((s) => s.toggle);
-  const activo = items.some((i) => i.id_catalogo === producto.id_catalogo);
-
-  function handle() {
-    toggle(producto);
-    toast(activo ? "Quitado de favoritos" : "Agregado a favoritos", {
-      description: producto.nombre,
-    });
-  }
+  const { has, toggle } = useWishlist();
+  const activo = has(producto.id_catalogo);
 
   if (variant === "full") {
     return (
       <button
         type="button"
-        onClick={handle}
+        onClick={() => toggle(producto)}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent",
           activo && "border-primary/40 text-primary",
@@ -49,7 +40,7 @@ export function WishlistButton({
   return (
     <button
       type="button"
-      onClick={handle}
+      onClick={() => toggle(producto)}
       aria-label={activo ? "Quitar de favoritos" : "Agregar a favoritos"}
       aria-pressed={activo}
       className={cn(

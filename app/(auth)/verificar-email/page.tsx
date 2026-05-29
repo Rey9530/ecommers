@@ -1,20 +1,51 @@
 "use client";
 
 import { Suspense } from "react";
+import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MailCheck, MailX } from "lucide-react";
+import { MailCheck, MailX, Loader2 } from "lucide-react";
 
+import { verificarEmail } from "@/lib/api/auth";
 import { AuthCard } from "@/components/account/auth-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type Estado = "cargando" | "ok" | "error";
+
 function VerificarContenido() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  // TODO: API — GET /tienda/auth/verificar-email?token= → { verificado: true }
-  const ok = !!token;
+  const [estado, setEstado] = React.useState<Estado>(
+    token ? "cargando" : "error"
+  );
 
+  React.useEffect(() => {
+    if (!token) return;
+    let cancelado = false;
+    verificarEmail(token)
+      .then((r) => {
+        if (!cancelado) setEstado(r.verificado ? "ok" : "error");
+      })
+      .catch(() => {
+        if (!cancelado) setEstado("error");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [token]);
+
+  if (estado === "cargando") {
+    return (
+      <AuthCard titulo="Verificando…">
+        <div className="flex items-center justify-center py-6 text-muted-foreground">
+          <Loader2 className="size-6 animate-spin" />
+        </div>
+      </AuthCard>
+    );
+  }
+
+  const ok = estado === "ok";
   return (
     <AuthCard titulo={ok ? "Correo verificado" : "Enlace inválido"}>
       <div className="text-center">

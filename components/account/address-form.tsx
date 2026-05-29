@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import type { Direccion, TipoDireccion } from "@/types";
+import type { DireccionInput } from "@/lib/api/direcciones";
 import {
   Dialog,
   DialogContent,
@@ -15,12 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { MunicipioSelect } from "@/components/common/municipio-select";
 
 interface AddressFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inicial?: Direccion | null;
-  onSave: (dir: Direccion) => void;
+  onSave: (input: DireccionInput, id?: number) => void;
 }
 
 export function AddressForm({
@@ -33,7 +35,7 @@ export function AddressForm({
   const [nombre, setNombre] = React.useState("");
   const [telefono, setTelefono] = React.useState("");
   const [direccion, setDireccion] = React.useState("");
-  const [municipio, setMunicipio] = React.useState("");
+  const [idMunicipio, setIdMunicipio] = React.useState<number | null>(null);
   const [referencia, setReferencia] = React.useState("");
   const [predeterminada, setPredeterminada] = React.useState(false);
 
@@ -45,7 +47,7 @@ export function AddressForm({
     setNombre(inicial?.nombre_contacto ?? "");
     setTelefono(inicial?.telefono ?? "");
     setDireccion(inicial?.direccion ?? "");
-    setMunicipio(inicial?.municipio_nombre ?? "");
+    setIdMunicipio(inicial?.id_municipio ?? null);
     setReferencia(inicial?.referencia ?? "");
     setPredeterminada(inicial?.es_predeterminada ?? false);
   } else if (!open && estabaAbierto) {
@@ -54,18 +56,18 @@ export function AddressForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: API — POST/PATCH /tienda/direcciones
-    onSave({
-      id_direccion: inicial?.id_direccion ?? Date.now(),
-      tipo,
-      nombre_contacto: nombre,
-      telefono,
-      id_municipio: inicial?.id_municipio ?? null,
-      municipio_nombre: municipio,
-      direccion,
-      referencia,
-      es_predeterminada: predeterminada,
-    });
+    onSave(
+      {
+        tipo,
+        nombre_contacto: nombre,
+        telefono,
+        id_municipio: idMunicipio,
+        direccion,
+        referencia,
+        es_predeterminada: predeterminada,
+      },
+      inicial?.id_direccion
+    );
     onOpenChange(false);
   }
 
@@ -100,19 +102,14 @@ export function AddressForm({
               <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
             </div>
           </div>
+          <MunicipioSelect value={idMunicipio} onChange={setIdMunicipio} />
           <div>
             <Label className="mb-1.5 block">Dirección</Label>
             <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} required />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label className="mb-1.5 block">Municipio</Label>
-              <Input value={municipio} onChange={(e) => setMunicipio(e.target.value)} />
-            </div>
-            <div>
-              <Label className="mb-1.5 block">Referencia</Label>
-              <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} />
-            </div>
+          <div>
+            <Label className="mb-1.5 block">Referencia</Label>
+            <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox

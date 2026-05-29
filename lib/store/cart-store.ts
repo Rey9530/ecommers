@@ -64,7 +64,7 @@ export const useCartStore = create<CartState>()(
           const imagen =
             "imagenes" in producto
               ? producto.imagenes[0]?.path_miniature ?? ""
-              : producto.imagen;
+              : producto.imagen ?? "";
           const line: CartLine = {
             id_catalogo: producto.id_catalogo,
             slug: producto.slug,

@@ -7,7 +7,14 @@ import { Search, X, Loader2 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { getSugerencias } from "@/lib/api/catalogo";
 import { ProductThumb } from "@/components/common/product-thumb";
-import type { ProductoLista } from "@/types";
+import type { Sugerencia } from "@/types";
+
+/** Semilla numérica estable a partir del slug (para el placeholder). */
+function seedDeSlug(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) % 100000;
+  return h;
+}
 
 interface SearchBarProps {
   className?: string;
@@ -20,7 +27,7 @@ export function SearchBar({ className, autoFocus, onNavigate }: SearchBarProps) 
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [sugerencias, setSugerencias] = React.useState<ProductoLista[]>([]);
+  const [sugerencias, setSugerencias] = React.useState<Sugerencia[]>([]);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -106,7 +113,7 @@ export function SearchBar({ className, autoFocus, onNavigate }: SearchBarProps) 
           ) : sugerencias.length > 0 ? (
             <ul className="max-h-96 overflow-auto py-1">
               {sugerencias.map((p) => (
-                <li key={p.id_catalogo}>
+                <li key={p.slug}>
                   <button
                     type="button"
                     onClick={() => goTo(p.slug)}
@@ -115,7 +122,8 @@ export function SearchBar({ className, autoFocus, onNavigate }: SearchBarProps) 
                     <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
                       <ProductThumb
                         nombre={p.nombre}
-                        seed={p.id_catalogo}
+                        seed={seedDeSlug(p.slug)}
+                        src={p.imagen || undefined}
                         sizes="40px"
                       />
                     </div>

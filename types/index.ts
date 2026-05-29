@@ -62,15 +62,19 @@ export interface ProductoLista {
   slug: string;
   nombre: string;
   descripcion_corta: string;
-  precio: number; // con IVA
+  precio: number; // con IVA (precio de oferta si está vigente)
   precio_sin_iva: number;
-  /** Solo-frontend: precio anterior para mostrar oferta tachada (el backend no expone ofertas hoy). */
-  precio_anterior?: number;
-  /** Solo-frontend: marca producto como novedad. */
+  /** Precio anterior tachado cuando hay oferta vigente. */
+  precio_anterior?: number | null;
+  /** true si hay oferta vigente. */
+  en_oferta?: boolean;
+  /** true si fue creado en los últimos 30 días. */
   es_nuevo?: boolean;
   en_stock: boolean;
-  imagen: string;
+  imagen: string | null;
   categoria: CategoriaRef;
+  calificacion_promedio?: number;
+  total_resenas?: number;
 }
 
 /** Detalle de producto (PDP). */
@@ -83,16 +87,20 @@ export interface ProductoDetalle {
   meta_title: string;
   meta_description: string;
   exento_iva: boolean;
-  precio: number; // con IVA
+  precio: number; // con IVA (precio de oferta si está vigente)
   precio_sin_iva: number;
-  /** Solo-frontend: precio anterior para mostrar oferta tachada. */
-  precio_anterior?: number;
-  /** Solo-frontend: marca producto como novedad. */
+  /** Precio anterior tachado cuando hay oferta vigente. */
+  precio_anterior?: number | null;
+  /** true si hay oferta vigente. */
+  en_oferta?: boolean;
+  /** true si fue creado en los últimos 30 días. */
   es_nuevo?: boolean;
   disponible: number; // existencias - reservas activas
   en_stock: boolean;
   categoria: CategoriaRef;
   imagenes: ImagenProducto[];
+  calificacion_promedio?: number;
+  total_resenas?: number;
   // Campos solo-frontend (no provistos por el backend hoy):
   atributos?: { etiqueta: string; valor: string }[];
 }
@@ -105,6 +113,17 @@ export interface CatalogoQuery {
   categoria?: number;
   q?: string;
   orden?: OrdenCatalogo;
+  precioMin?: number;
+  precioMax?: number;
+  soloDisponibles?: boolean;
+}
+
+/** Sugerencia de autocompletado (`GET /tienda/catalogo/sugerencias`). */
+export interface Sugerencia {
+  slug: string;
+  nombre: string;
+  precio: number;
+  imagen: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +147,9 @@ export interface Carrito {
   id_carrito: number;
   items: CarritoItem[];
   cantidad_items: number;
+  cupon: string | null;
   subtotal: number;
+  descuento: number;
   total: number;
 }
 
@@ -258,16 +279,35 @@ export interface CheckoutDto {
 }
 
 // ---------------------------------------------------------------------------
-// Reseñas (solo frontend — el backend aún no las expone)
+// Reseñas (API real: GET /tienda/catalogo/:slug/resenas)
 // ---------------------------------------------------------------------------
 
-export interface Resena {
-  id: number;
-  id_catalogo: number;
-  autor: string;
+export interface ResenaPublica {
+  id_resena: number;
   calificacion: number; // 1..5
-  titulo: string;
-  comentario: string;
+  comentario: string | null;
+  nombre: string;
   fecha: string;
-  compra_verificada: boolean;
+}
+
+export interface ResenasResponse {
+  promedio: number;
+  total: number;
+  resenas: ResenaPublica[];
+}
+
+// ---------------------------------------------------------------------------
+// Geo (selectores de dirección)
+// ---------------------------------------------------------------------------
+
+export interface Departamento {
+  id_departamento: number;
+  nombre: string;
+  codigo: string;
+}
+
+export interface Municipio {
+  id_municipio: number;
+  nombre: string;
+  id_departamento: number;
 }

@@ -5,39 +5,83 @@ import { MapPin, Plus, Pencil, Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Direccion } from "@/types";
-import { DIRECCIONES_DEMO } from "@/lib/mock/data";
+import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  getDirecciones,
+  crearDireccion,
+  actualizarDireccion,
+  eliminarDireccion,
+  type DireccionInput,
+} from "@/lib/api/direcciones";
+import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
 import { AddressForm } from "@/components/account/address-form";
 
 export function AddressBook() {
-  const [direcciones, setDirecciones] = React.useState<Direccion[]>(DIRECCIONES_DEMO);
+  const token = useAuthStore((s) => s.token);
+  const [direcciones, setDirecciones] = React.useState<Direccion[]>([]);
+  const [cargando, setCargando] = React.useState(true);
   const [open, setOpen] = React.useState(false);
   const [editando, setEditando] = React.useState<Direccion | null>(null);
 
-  function guardar(dir: Direccion) {
-    setDirecciones((prev) => {
-      const existe = prev.some((d) => d.id_direccion === dir.id_direccion);
-      let next = existe
-        ? prev.map((d) => (d.id_direccion === dir.id_direccion ? dir : d))
-        : [...prev, dir];
-      if (dir.es_predeterminada) {
-        next = next.map((d) =>
-          d.id_direccion === dir.id_direccion
-            ? d
-            : { ...d, es_predeterminada: false }
-        );
-      }
-      return next;
-    });
-    toast.success(editando ? "Dirección actualizada" : "Dirección agregada");
+  React.useEffect(() => {
+    if (!token) return;
+    let cancel = false;
+    getDirecciones(token)
+      .then((d) => {
+        if (!cancel) setDirecciones(d);
+      })
+      .catch((err) => {
+        if (!cancel)
+          toast.error("No se pudieron cargar las direcciones", {
+            description: err instanceof ApiError ? err.message : undefined,
+          });
+      })
+      .finally(() => {
+        if (!cancel) setCargando(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [token]);
+
+  async function recargar() {
+    if (!token) return;
+    setDirecciones(await getDirecciones(token));
   }
 
-  function eliminar(id: number) {
-    // TODO: API — DELETE /tienda/direcciones/:id (borrado lógico).
-    setDirecciones((prev) => prev.filter((d) => d.id_direccion !== id));
-    toast.success("Dirección eliminada");
+  async function guardar(input: DireccionInput, id?: number) {
+    if (!token) return;
+    try {
+      if (id) {
+        await actualizarDireccion(token, id, input);
+        toast.success("Dirección actualizada");
+      } else {
+        await crearDireccion(token, input);
+        toast.success("Dirección agregada");
+      }
+      await recargar();
+    } catch (err) {
+      toast.error("No se pudo guardar", {
+        description: err instanceof ApiError ? err.message : undefined,
+      });
+    }
+  }
+
+  async function eliminar(id: number) {
+    if (!token) return;
+    try {
+      await eliminarDireccion(token, id);
+      setDirecciones((prev) => prev.filter((d) => d.id_direccion !== id));
+      toast.success("Dirección eliminada");
+    } catch (err) {
+      toast.error("No se pudo eliminar", {
+        description: err instanceof ApiError ? err.message : undefined,
+      });
+    }
   }
 
   return (
@@ -54,7 +98,12 @@ export function AddressBook() {
         </Button>
       </div>
 
-      {direcciones.length === 0 ? (
+      {cargando ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : direcciones.length === 0 ? (
         <EmptyState
           icon={MapPin}
           title="Sin direcciones guardadas"

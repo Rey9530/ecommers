@@ -5,10 +5,8 @@ import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { formatPrice } from "@/lib/utils";
-import {
-  useWishlistStore,
-  type WishlistItem,
-} from "@/lib/store/wishlist-store";
+import type { WishlistItem } from "@/lib/store/wishlist-store";
+import { useWishlist } from "@/lib/hooks/use-wishlist";
 import { useCartStore } from "@/lib/store/cart-store";
 import { ProductThumb } from "@/components/common/product-thumb";
 import { Button } from "@/components/ui/button";
@@ -31,9 +29,7 @@ function toProductoLista(item: WishlistItem) {
 }
 
 export function WishlistGrid() {
-  const items = useWishlistStore((s) => s.items);
-  const hydrated = useWishlistStore((s) => s.hydrated);
-  const remove = useWishlistStore((s) => s.remove);
+  const { items, hydrated, toggle } = useWishlist();
   const addItem = useCartStore((s) => s.addItem);
 
   if (!hydrated) {
@@ -62,7 +58,7 @@ export function WishlistGrid() {
 
   function moverAlCarrito(item: WishlistItem) {
     addItem(toProductoLista(item), 1);
-    remove(item.id_catalogo);
+    toggle(toProductoLista(item)); // quita de favoritos (estaba presente)
     toast.success("Movido al carrito", { description: item.nombre });
   }
 
@@ -83,7 +79,7 @@ export function WishlistGrid() {
             </Link>
             <button
               type="button"
-              onClick={() => remove(item.id_catalogo)}
+              onClick={() => toggle(toProductoLista(item))}
               aria-label="Quitar de favoritos"
               className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-background/90 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-destructive"
             >

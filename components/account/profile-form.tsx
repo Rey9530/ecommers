@@ -5,6 +5,8 @@ import { BadgeCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuthStore } from "@/lib/store/auth-store";
+import { actualizarPerfil } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,14 +14,33 @@ import { Badge } from "@/components/ui/badge";
 
 export function ProfileForm() {
   const cliente = useAuthStore((s) => s.cliente);
+  const token = useAuthStore((s) => s.token);
+  const setCliente = useAuthStore((s) => s.setCliente);
   const [nombre, setNombre] = React.useState(cliente?.nombre ?? "");
-  const [email, setEmail] = React.useState(cliente?.email ?? "");
   const [telefono, setTelefono] = React.useState(cliente?.telefono ?? "");
+  const [guardando, setGuardando] = React.useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: API — PATCH /tienda/customers/me
-    toast.success("Perfil actualizado");
+    if (!token || !cliente) return;
+    setGuardando(true);
+    try {
+      const r = await actualizarPerfil(token, { nombre, telefono });
+      setCliente({
+        ...cliente,
+        nombre: r.nombre,
+        telefono: r.telefono,
+        email: r.correo,
+        tipo_precio: r.tipo_precio,
+      });
+      toast.success("Perfil actualizado");
+    } catch (err) {
+      toast.error("No se pudo actualizar", {
+        description: err instanceof ApiError ? err.message : undefined,
+      });
+    } finally {
+      setGuardando(false);
+    }
   }
 
   if (!cliente) return null;
@@ -40,12 +61,7 @@ export function ProfileForm() {
         <Label htmlFor="email" className="mb-1.5 block">
           Correo electrónico
         </Label>
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <Input id="email" type="email" value={cliente.email} disabled />
         <div className="mt-1.5">
           {cliente.email_verificado ? (
             <Badge variant="success">
@@ -68,7 +84,9 @@ export function ProfileForm() {
           onChange={(e) => setTelefono(e.target.value)}
         />
       </div>
-      <Button type="submit">Guardar cambios</Button>
+      <Button type="submit" disabled={guardando}>
+        {guardando ? "Guardando…" : "Guardar cambios"}
+      </Button>
     </form>
   );
 }

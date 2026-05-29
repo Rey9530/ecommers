@@ -1,5 +1,4 @@
-import type { CatalogoFiltrosUI } from "@/lib/api/catalogo";
-import type { OrdenCatalogo } from "@/types";
+import type { CatalogoQuery, OrdenCatalogo } from "@/types";
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -11,7 +10,7 @@ const ORDENES: OrdenCatalogo[] = [
 ];
 
 /** Convierte los searchParams crudos de la URL en filtros para `getCatalogo`. */
-export function parseFiltros(sp: RawSearchParams): CatalogoFiltrosUI {
+export function parseFiltros(sp: RawSearchParams): CatalogoQuery {
   const get = (k: string) => {
     const v = sp[k];
     return Array.isArray(v) ? v[0] : v;

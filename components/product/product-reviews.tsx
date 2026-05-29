@@ -1,63 +1,68 @@
 "use client";
 
 import * as React from "react";
-import { Star, BadgeCheck, PenLine } from "lucide-react";
+import Link from "next/link";
+import { Star, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn, formatDate } from "@/lib/utils";
-import type { Resena } from "@/types";
+import type { ResenasResponse } from "@/types";
+import { crearResena } from "@/lib/api/resenas";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { ApiError } from "@/lib/api/client";
 import { RatingStars } from "@/components/common/rating-stars";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 export function ProductReviews({
-  idCatalogo,
-  resenasIniciales,
+  slug,
+  inicial,
 }: {
-  idCatalogo: number;
-  resenasIniciales: Resena[];
+  slug: string;
+  inicial: ResenasResponse;
 }) {
-  const [resenas, setResenas] = React.useState<Resena[]>(resenasIniciales);
+  const token = useAuthStore((s) => s.token);
   const [abierto, setAbierto] = React.useState(false);
   const [calif, setCalif] = React.useState(5);
-  const [autor, setAutor] = React.useState("");
-  const [titulo, setTitulo] = React.useState("");
   const [comentario, setComentario] = React.useState("");
+  const [enviando, setEnviando] = React.useState(false);
+  const [enviada, setEnviada] = React.useState(false);
 
-  const promedio =
-    resenas.length > 0
-      ? resenas.reduce((a, r) => a + r.calificacion, 0) / resenas.length
-      : 0;
+  const { promedio, total, resenas } = inicial;
 
   const distribucion = [5, 4, 3, 2, 1].map((n) => ({
     estrellas: n,
     cantidad: resenas.filter((r) => r.calificacion === n).length,
   }));
 
-  function enviar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: API — el backend no expone reseñas aún; se guarda solo en cliente.
-    const nueva: Resena = {
-      id: Date.now(),
-      id_catalogo: idCatalogo,
-      autor: autor || "Anónimo",
-      calificacion: calif,
-      titulo,
-      comentario,
-      fecha: new Date().toISOString(),
-      compra_verificada: false,
-    };
-    setResenas((prev) => [nueva, ...prev]);
-    setAbierto(false);
-    setAutor("");
-    setTitulo("");
-    setComentario("");
-    setCalif(5);
-    toast.success("¡Gracias por tu reseña!", {
-      description: "Se publicará tras moderación.",
-    });
+    if (!token) {
+      toast.error("Inicia sesión para reseñar");
+      return;
+    }
+    setEnviando(true);
+    try {
+      const r = await crearResena(slug, { calificacion: calif, comentario }, token);
+      setEnviada(true);
+      setAbierto(false);
+      setComentario("");
+      setCalif(5);
+      toast.success("¡Gracias por tu reseña!", {
+        description: r.mensaje ?? "Se publicará tras moderación.",
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.status === 403
+            ? "Solo puedes reseñar productos que has comprado."
+            : err.message
+          : "No se pudo enviar la reseña.";
+      toast.error("No se pudo enviar", { description: msg });
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -72,7 +77,7 @@ export function ProductReviews({
             <div className="pb-1">
               <RatingStars value={promedio} size="md" />
               <p className="mt-1 text-sm text-muted-foreground">
-                {resenas.length} reseña(s)
+                {total} reseña(s)
               </p>
             </div>
           </div>
@@ -86,7 +91,7 @@ export function ProductReviews({
                   <div
                     className="h-full bg-warning"
                     style={{
-                      width: `${resenas.length ? (d.cantidad / resenas.length) * 100 : 0}%`,
+                      width: `${total ? (d.cantidad / total) * 100 : 0}%`,
                     }}
                   />
                 </div>
@@ -96,13 +101,20 @@ export function ProductReviews({
               </div>
             ))}
           </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setAbierto((v) => !v)}
-          >
-            <PenLine /> Escribir una reseña
-          </Button>
+          {token ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={enviada}
+              onClick={() => setAbierto((v) => !v)}
+            >
+              <PenLine /> {enviada ? "Reseña enviada" : "Escribir una reseña"}
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/login">Inicia sesión para reseñar</Link>
+            </Button>
+          )}
         </div>
 
         {/* Formulario + lista */}
@@ -134,49 +146,30 @@ export function ProductReviews({
                   ))}
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="autor" className="mb-1.5 block">
-                    Nombre
-                  </Label>
-                  <Input
-                    id="autor"
-                    value={autor}
-                    onChange={(e) => setAutor(e.target.value)}
-                    placeholder="Tu nombre"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="titulo" className="mb-1.5 block">
-                    Título
-                  </Label>
-                  <Input
-                    id="titulo"
-                    required
-                    value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
-                    placeholder="Resume tu experiencia"
-                  />
-                </div>
-              </div>
               <div>
                 <Label htmlFor="comentario" className="mb-1.5 block">
                   Comentario
                 </Label>
                 <Textarea
                   id="comentario"
-                  required
                   value={comentario}
                   onChange={(e) => setComentario(e.target.value)}
                   placeholder="Cuéntanos qué te pareció…"
+                  maxLength={1000}
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Publicar reseña</Button>
+                <Button type="submit" disabled={enviando}>
+                  {enviando ? "Enviando…" : "Publicar reseña"}
+                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Solo puedes reseñar productos que has comprado. Tu reseña pasa por
+                moderación antes de publicarse.
+              </p>
             </form>
           )}
 
@@ -187,25 +180,19 @@ export function ProductReviews({
           ) : (
             <ul className="divide-y">
               {resenas.map((r) => (
-                <li key={r.id} className="py-5">
+                <li key={r.id_resena} className="py-5">
                   <div className="flex items-center justify-between">
                     <RatingStars value={r.calificacion} />
                     <span className="text-xs text-muted-foreground">
                       {formatDate(r.fecha)}
                     </span>
                   </div>
-                  <h3 className="mt-2 font-medium">{r.titulo}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {r.comentario}
-                  </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {r.autor}
-                    {r.compra_verificada && (
-                      <span className="inline-flex items-center gap-1 text-success">
-                        <BadgeCheck className="size-3.5" /> Compra verificada
-                      </span>
-                    )}
-                  </p>
+                  {r.comentario && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {r.comentario}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">{r.nombre}</p>
                 </li>
               ))}
             </ul>

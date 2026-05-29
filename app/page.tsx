@@ -2,17 +2,18 @@ import Link from "next/link";
 import { ArrowRight, Truck, ShieldCheck, Sparkles, Gift } from "lucide-react";
 
 import { getDestacados, getNovedades } from "@/lib/api/catalogo";
-import { buildCategoriaTree } from "@/lib/categorias";
+import { buildCategoriaTree, getCategorias } from "@/lib/categorias";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/product/product-grid";
 import { CategoryTile } from "@/components/catalog/category-tile";
 
 export default async function HomePage() {
-  const [destacados, novedades] = await Promise.all([
+  const [destacados, novedades, categoriasPlanas] = await Promise.all([
     getDestacados(8),
     getNovedades(4),
+    getCategorias(),
   ]);
-  const categorias = buildCategoriaTree();
+  const categorias = buildCategoriaTree(categoriasPlanas);
 
   return (
     <div>

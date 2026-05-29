@@ -4,6 +4,7 @@ import * as React from "react";
 import { MailCheck } from "lucide-react";
 import { toast } from "sonner";
 
+import { solicitarReset } from "@/lib/api/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,20 @@ import { Button } from "@/components/ui/button";
 export function RecoverForm() {
   const [email, setEmail] = React.useState("");
   const [enviado, setEnviado] = React.useState(false);
+  const [cargando, setCargando] = React.useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: API — POST /tienda/auth/solicitar-reset (no revela si el correo existe).
-    setEnviado(true);
-    toast.success("Revisa tu correo");
+    setCargando(true);
+    try {
+      await solicitarReset(email);
+      toast.success("Revisa tu correo");
+    } catch {
+      // No se revela si el correo existe.
+    } finally {
+      setEnviado(true);
+      setCargando(false);
+    }
   }
 
   if (enviado) {
@@ -48,8 +57,8 @@ export function RecoverForm() {
           placeholder="tu@correo.com"
         />
       </div>
-      <Button type="submit" size="lg" className="w-full">
-        Enviar instrucciones
+      <Button type="submit" size="lg" className="w-full" disabled={cargando}>
+        {cargando ? "Enviando…" : "Enviar instrucciones"}
       </Button>
     </form>
   );

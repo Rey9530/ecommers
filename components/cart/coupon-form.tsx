@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 /**
- * Cupones: el backend NO los implementa hoy (IVA único, sin descuentos).
- * La UI queda lista; al integrarse llamará a `POST /tienda/carrito/coupon`.
+ * En el carrito el cupón es informativo: como el carrito vive en el cliente
+ * hasta el checkout, el descuento se valida y aplica al finalizar la compra
+ * (ver checkout-flow → `/tienda/carrito/coupon`).
  */
 export function CouponForm() {
   const [codigo, setCodigo] = React.useState("");
@@ -17,9 +18,8 @@ export function CouponForm() {
   function aplicar(e: React.FormEvent) {
     e.preventDefault();
     if (!codigo.trim()) return;
-    // TODO: API — validar cupón en el backend.
-    toast.info("Cupones no disponibles aún", {
-      description: "Pronto podrás aplicar códigos de descuento.",
+    toast.info("Aplica tu cupón al finalizar", {
+      description: "Podrás ingresar y validar el código en el checkout.",
     });
   }
 

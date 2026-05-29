@@ -1,25 +1,22 @@
 /**
- * Sesión de cliente — MOCK (Zustand + localStorage).
- *
- * Simula el JWT de cliente del backend (`/tienda/auth`). En la versión real,
- * `login`/`register` llamarán a `/tienda/auth/login|registro`, guardarán el
- * token y `me` se obtendrá de `/tienda/auth/me`. Aquí usamos el cliente demo.
+ * Sesión de cliente (JWT del backend `/tienda/auth`).
+ * Guarda el token y los datos del cliente en localStorage.
  */
 
 "use client";
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Cliente } from "@/types";
-import { CLIENTE_DEMO } from "@/lib/mock/data";
+import type { AuthResponse, Cliente } from "@/types";
+import { useWishlistStore } from "@/lib/store/wishlist-store";
 
 interface AuthState {
   cliente: Cliente | null;
   token: string | null;
   hydrated: boolean;
   setHydrated: () => void;
-  login: (email?: string) => void;
-  register: (nombre: string, email: string) => void;
+  setSession: (resp: AuthResponse) => void;
+  setCliente: (cliente: Cliente) => void;
   logout: () => void;
 }
 
@@ -30,22 +27,13 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       hydrated: false,
       setHydrated: () => set({ hydrated: true }),
-      login: (email) =>
-        set({
-          cliente: { ...CLIENTE_DEMO, email: email || CLIENTE_DEMO.email },
-          token: "mock.jwt.token",
-        }),
-      register: (nombre, email) =>
-        set({
-          cliente: {
-            ...CLIENTE_DEMO,
-            nombre,
-            email,
-            email_verificado: false,
-          },
-          token: "mock.jwt.token",
-        }),
-      logout: () => set({ cliente: null, token: null }),
+      setSession: (resp) => set({ cliente: resp.cliente, token: resp.token }),
+      setCliente: (cliente) => set({ cliente }),
+      logout: () => {
+        // Los favoritos en sesión son del backend; al salir se limpia la caché local.
+        useWishlistStore.getState().clear();
+        set({ cliente: null, token: null });
+      },
     }),
     {
       name: "bolsabonita-auth",

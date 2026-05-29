@@ -24,6 +24,7 @@ interface WishlistState {
   items: WishlistItem[];
   hydrated: boolean;
   setHydrated: () => void;
+  setItems: (items: WishlistItem[]) => void;
   toggle: (producto: ProductoLista | ProductoDetalle) => void;
   remove: (idCatalogo: number) => void;
   has: (idCatalogo: number) => boolean;
@@ -36,6 +37,7 @@ export const useWishlistStore = create<WishlistState>()(
       items: [],
       hydrated: false,
       setHydrated: () => set({ hydrated: true }),
+      setItems: (items) => set({ items }),
       toggle: (producto) =>
         set((state) => {
           const exists = state.items.some(
@@ -51,7 +53,7 @@ export const useWishlistStore = create<WishlistState>()(
           const imagen =
             "imagenes" in producto
               ? producto.imagenes[0]?.path_miniature ?? ""
-              : producto.imagen;
+              : producto.imagen ?? "";
           const item: WishlistItem = {
             id_catalogo: producto.id_catalogo,
             slug: producto.slug,

@@ -4,11 +4,10 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useWishlistStore } from "@/lib/store/wishlist-store";
+import { useWishlist } from "@/lib/hooks/use-wishlist";
 
 export function WishlistLink() {
-  const items = useWishlistStore((s) => s.items);
-  const hydrated = useWishlistStore((s) => s.hydrated);
+  const { items, hydrated } = useWishlist();
 
   return (
     <Button

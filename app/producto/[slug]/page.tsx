@@ -4,10 +4,9 @@ import { notFound } from "next/navigation";
 import {
   getProducto,
   getRelacionados,
-  getResenas,
   categoriaSlug,
 } from "@/lib/api/catalogo";
-import { PRODUCTOS } from "@/lib/mock/data";
+import { getResenas } from "@/lib/api/resenas";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductPurchase } from "@/components/product/product-purchase";
 import { ProductTabs } from "@/components/product/product-tabs";
@@ -22,9 +21,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-export async function generateStaticParams() {
-  return PRODUCTOS.map((p) => ({ slug: p.slug }));
-}
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -55,8 +52,8 @@ export default async function ProductoPage({
   if (!producto) notFound();
 
   const [relacionados, resenas] = await Promise.all([
-    getRelacionados(producto),
-    getResenas(producto.id_catalogo),
+    getRelacionados(slug),
+    getResenas(slug),
   ]);
 
   const jsonLd = {
@@ -66,6 +63,15 @@ export default async function ProductoPage({
     description: producto.descripcion_corta,
     sku: String(producto.id_catalogo),
     category: producto.categoria.nombre,
+    ...(producto.total_resenas && producto.total_resenas > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: producto.calificacion_promedio,
+            reviewCount: producto.total_resenas,
+          },
+        }
+      : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: "USD",
@@ -115,10 +121,7 @@ export default async function ProductoPage({
       </div>
 
       <div className="mt-12">
-        <ProductReviews
-          idCatalogo={producto.id_catalogo}
-          resenasIniciales={resenas}
-        />
+        <ProductReviews slug={slug} inicial={resenas} />
       </div>
 
       {relacionados.length > 0 && (

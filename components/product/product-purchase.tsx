@@ -5,6 +5,7 @@ import { Check, Truck, Store, RotateCcw } from "lucide-react";
 
 import type { ProductoDetalle } from "@/types";
 import { PriceDisplay } from "@/components/common/price-display";
+import { RatingStars } from "@/components/common/rating-stars";
 import { StockBadge } from "@/components/product/stock-badge";
 import { QuantityStepper } from "@/components/common/quantity-stepper";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
@@ -22,16 +23,22 @@ export function ProductPurchase({ producto }: { producto: ProductoDetalle }) {
         <h1 className="mt-1 font-display text-3xl font-semibold leading-tight">
           {producto.nombre}
         </h1>
+        {!!producto.total_resenas && producto.total_resenas > 0 && (
+          <div className="mt-2">
+            <RatingStars
+              value={producto.calificacion_promedio ?? 0}
+              count={producto.total_resenas}
+              showValue
+            />
+          </div>
+        )}
       </div>
 
       <PriceDisplay
         precio={producto.precio}
-        precioAnterior={producto.precio_anterior}
+        precioAnterior={producto.precio_anterior ?? undefined}
         size="lg"
       />
-      <p className="text-sm text-muted-foreground">
-        Precio con IVA incluido · {producto.exento_iva ? "Exento de IVA" : "IVA 13%"}
-      </p>
 
       <p className="text-pretty text-muted-foreground">
         {producto.descripcion_corta}

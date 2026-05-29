@@ -33,7 +33,13 @@ function InfoCard({
   );
 }
 
-export function OrderDetail({ pedido }: { pedido: Pedido }) {
+export function OrderDetail({
+  pedido,
+  onUpdate,
+}: {
+  pedido: Pedido;
+  onUpdate?: (pedido: Pedido) => void;
+}) {
   return (
     <div>
       <Link
@@ -56,7 +62,7 @@ export function OrderDetail({ pedido }: { pedido: Pedido }) {
       </div>
 
       <div className="mt-4">
-        <OrderActions pedido={pedido} />
+        <OrderActions pedido={pedido} onUpdate={onUpdate} />
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem]">
@@ -96,13 +102,15 @@ export function OrderDetail({ pedido }: { pedido: Pedido }) {
             <Separator />
             <div className="space-y-1 p-4 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal (sin IVA)</span>
-                <span>{formatPrice(pedido.subtotal)}</span>
+                <span>Subtotal</span>
+                <span>{formatPrice(pedido.subtotal + pedido.iva)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>IVA (13%)</span>
-                <span>{formatPrice(pedido.iva)}</span>
-              </div>
+              {pedido.descuento > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Descuento</span>
+                  <span>−{formatPrice(pedido.descuento)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-muted-foreground">
                 <span>Envío</span>
                 <span>

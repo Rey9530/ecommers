@@ -38,7 +38,7 @@ export function ActiveFilters() {
           onClick={() =>
             router.push(`${pathname}${buildSearch(searchParams, chip.clear)}`)
           }
-          className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs font-medium transition-colors hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-accent"
         >
           {chip.label}
           <X className="size-3" />

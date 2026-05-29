@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Landmark, HandCoins, Upload, Copy, Check } from "lucide-react";
+import { Landmark, HandCoins, Upload, Copy, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { formatPrice } from "@/lib/utils";
 import type { Pedido } from "@/types";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { subirComprobante } from "@/lib/api/pedidos";
+import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 
 const BANCO = {
@@ -16,13 +19,40 @@ const BANCO = {
 };
 
 export function PaymentInstructions({ pedido }: { pedido: Pedido }) {
+  const token = useAuthStore((s) => s.token);
   const [copiado, setCopiado] = React.useState(false);
   const [subido, setSubido] = React.useState(false);
+  const [subiendo, setSubiendo] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   function copiar() {
     navigator.clipboard?.writeText(BANCO.cuenta);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1500);
+  }
+
+  async function onArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendo(true);
+    try {
+      await subirComprobante(
+        pedido.numero_pedido,
+        { token, email: token ? undefined : pedido.email_contacto },
+        file
+      );
+      setSubido(true);
+      toast.success("Comprobante recibido", {
+        description: "Verificaremos tu pago en breve.",
+      });
+    } catch (err) {
+      toast.error("No se pudo subir el comprobante", {
+        description: err instanceof ApiError ? err.message : undefined,
+      });
+    } finally {
+      setSubiendo(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   }
 
   if (pedido.metodo_pago === "CONTRA_ENTREGA") {
@@ -90,20 +120,26 @@ export function PaymentInstructions({ pedido }: { pedido: Pedido }) {
         </div>
       </dl>
 
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={onArchivo}
+      />
       <Button
         variant={subido ? "outline" : "default"}
         className="mt-4 w-full"
-        onClick={() => {
-          // TODO: API — subir comprobante (comprobante_pago_url).
-          setSubido(true);
-          toast.success("Comprobante recibido", {
-            description: "Verificaremos tu pago en breve.",
-          });
-        }}
+        disabled={subiendo}
+        onClick={() => inputRef.current?.click()}
       >
-        {subido ? (
+        {subiendo ? (
           <>
-            <Check /> Comprobante enviado
+            <Loader2 className="animate-spin" /> Subiendo…
+          </>
+        ) : subido ? (
+          <>
+            <Check /> Comprobante enviado · subir otro
           </>
         ) : (
           <>

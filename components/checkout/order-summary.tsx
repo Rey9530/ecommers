@@ -6,9 +6,11 @@ import { ProductThumb } from "@/components/common/product-thumb";
 export function OrderSummary({
   items,
   subtotal,
+  descuento = 0,
 }: {
   items: CartLine[];
   subtotal: number;
+  descuento?: number;
 }) {
   return (
     <div className="space-y-4">
@@ -36,7 +38,7 @@ export function OrderSummary({
           ))}
         </ul>
       </div>
-      <CartSummary subtotal={subtotal} />
+      <CartSummary subtotal={subtotal} descuento={descuento} />
     </div>
   );
 }

@@ -16,7 +16,6 @@ import type { CategoriaArbol } from "@/types";
 interface FilterSidebarProps {
   categorias: CategoriaArbol[];
   rango: { min: number; max: number };
-  /** id de la categoría activa (cuando estamos en /categoria/[slug]). */
   categoriaActiva?: number;
   className?: string;
 }
@@ -39,14 +38,10 @@ export function FilterSidebar({
     precioMin,
     precioMax,
   ]);
-  // Resincroniza el slider cuando los filtros de la URL cambian externamente
-  // (patrón de ajuste de estado en render recomendado por React, sin efecto).
-  const [prevRango, setPrevRango] = React.useState<[number, number]>([
-    precioMin,
-    precioMax,
-  ]);
-  if (prevRango[0] !== precioMin || prevRango[1] !== precioMax) {
-    setPrevRango([precioMin, precioMax]);
+  // Resincroniza el slider si la URL cambia externamente (ajuste en render).
+  const [prev, setPrev] = React.useState<[number, number]>([precioMin, precioMax]);
+  if (prev[0] !== precioMin || prev[1] !== precioMax) {
+    setPrev([precioMin, precioMax]);
     setRangoLocal([precioMin, precioMax]);
   }
 
@@ -70,7 +65,9 @@ export function FilterSidebar({
               href="/productos"
               className={cn(
                 "block rounded-md px-2 py-1.5 hover:bg-accent",
-                !categoriaActiva && pathname === "/productos" && "bg-accent font-medium"
+                !categoriaActiva &&
+                  pathname === "/productos" &&
+                  "bg-accent font-medium"
               )}
             >
               Todos los productos

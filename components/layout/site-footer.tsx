@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Sparkles, Camera, MessageCircle, Mail, Phone } from "lucide-react";
 
-import { buildCategoriaTree, categoriaSlug } from "@/lib/categorias";
+import { buildCategoriaTree, categoriaSlug, getCategorias } from "@/lib/categorias";
 import { NewsletterForm } from "@/components/layout/newsletter-form";
 
-export function SiteFooter() {
-  const categorias = buildCategoriaTree();
+export async function SiteFooter() {
+  const categorias = buildCategoriaTree(await getCategorias());
 
   return (
     <footer className="mt-16 border-t bg-muted/30">
@@ -102,7 +102,7 @@ export function SiteFooter() {
       <div className="border-t">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-4 text-xs text-muted-foreground sm:flex-row">
           <p>© 2026 Bolsa Bonita. Todos los derechos reservados.</p>
-          <p>Precios en USD · IVA incluido</p>
+          <p>Precios en USD</p>
         </div>
       </div>
     </footer>
