@@ -191,6 +191,25 @@ export interface Direccion {
 }
 
 // ---------------------------------------------------------------------------
+// Encomendistas (catálogo público del storefront)
+// ---------------------------------------------------------------------------
+
+export interface EncomendistaDireccion {
+  id_transportista_direccion: number;
+  direccion: string;
+  foto?: string | null;
+  comentario?: string | null;
+}
+
+export interface Encomendista {
+  id_transportista: number;
+  nombre: string;
+  contacto?: string | null;
+  comentario?: string | null;
+  IaTransportistasDirecciones: EncomendistaDireccion[];
+}
+
+// ---------------------------------------------------------------------------
 // Pedidos
 // ---------------------------------------------------------------------------
 
@@ -237,11 +256,14 @@ export interface Pedido {
   fiscal_nrc: string;
   fiscal_giro: string;
   metodo_entrega: MetodoEntrega;
-  envio_nombre: string;
-  envio_telefono: string;
-  envio_id_municipio: number | null;
-  envio_direccion: string;
-  envio_referencia: string;
+  id_transportista?: number | null;
+  id_transportista_direccion?: number | null;
+  fecha_entrega?: string | null;
+  envio_nombre?: string;
+  envio_telefono?: string;
+  envio_id_municipio?: number | null;
+  envio_direccion?: string;
+  envio_referencia?: string;
   metodo_pago: MetodoPago;
   comprobante_pago_url: string;
   subtotal: number;
@@ -266,12 +288,11 @@ export interface CheckoutDto {
   fiscal_nrc?: string;
   fiscal_giro?: string;
   metodo_entrega: MetodoEntrega;
-  id_direccion?: number;
-  envio_nombre?: string;
-  envio_telefono?: string;
-  envio_id_municipio?: number;
-  envio_direccion?: string;
-  envio_referencia?: string;
+  /** Requeridos cuando metodo_entrega === "ENVIO". */
+  id_transportista?: number;
+  id_transportista_direccion?: number;
+  /** YYYY-MM-DD. Requerido cuando metodo_entrega === "ENVIO". */
+  fecha_entrega?: string;
   metodo_pago: MetodoPago;
   email_contacto?: string;
   telefono_contacto?: string;

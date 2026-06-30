@@ -21,30 +21,36 @@ import {
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useOrderStore } from "@/lib/store/order-store";
 import { getSessionId } from "@/lib/session";
-import { getDirecciones } from "@/lib/api/direcciones";
 import {
   sincronizarCarrito,
   checkout as checkoutApi,
   aplicarCupon,
   quitarCupon,
 } from "@/lib/api/pedidos";
+import { getEncomendistas } from "@/lib/api/encomendistas";
 import { ApiError } from "@/lib/api/client";
 import type {
   CheckoutDto,
-  Direccion,
+  Encomendista,
   MetodoEntrega,
   MetodoPago,
   TipoDocumento,
 } from "@/types";
 
 import { OrderSummary } from "@/components/checkout/order-summary";
-import { MunicipioSelect } from "@/components/common/municipio-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
 
@@ -113,7 +119,9 @@ export function CheckoutFlow() {
   const setUltimo = useOrderStore((s) => s.setUltimo);
 
   const logueado = authHydrated && !!cliente;
-  const [direcciones, setDirecciones] = React.useState<Direccion[]>([]);
+
+  // Catálogo público de encomendistas (transportistas activos con sus direcciones).
+  const [encomendistas, setEncomendistas] = React.useState<Encomendista[]>([]);
 
   // Estado del formulario
   const [email, setEmail] = React.useState("");
@@ -124,12 +132,9 @@ export function CheckoutFlow() {
   const [fiscalNrc, setFiscalNrc] = React.useState("");
   const [fiscalGiro, setFiscalGiro] = React.useState("");
   const [entrega, setEntrega] = React.useState<MetodoEntrega>("ENVIO");
-  const [idDireccion, setIdDireccion] = React.useState<number | null>(null);
-  const [envNombre, setEnvNombre] = React.useState("");
-  const [envTel, setEnvTel] = React.useState("");
-  const [envDir, setEnvDir] = React.useState("");
-  const [envMunicipio, setEnvMunicipio] = React.useState<number | null>(null);
-  const [envRef, setEnvRef] = React.useState("");
+  const [idTransportista, setIdTransportista] = React.useState<number | null>(null);
+  const [idDireccionEncomienda, setIdDireccionEncomienda] = React.useState<number | null>(null);
+  const [fechaEntrega, setFechaEntrega] = React.useState("");
   const [pago, setPago] = React.useState<MetodoPago>("TRANSFERENCIA");
   const [nota, setNota] = React.useState("");
   const [terminos, setTerminos] = React.useState(false);
@@ -147,22 +152,24 @@ export function CheckoutFlow() {
     setTelefono(cliente.telefono ?? "");
   }
 
-  // Cargar direcciones guardadas (logueado) y preseleccionar la predeterminada.
+  // Cargar encomendistas activos (público, sin auth).
   React.useEffect(() => {
-    if (!logueado || !token) return;
     let cancel = false;
-    getDirecciones(token)
-      .then((dirs) => {
+    getEncomendistas()
+      .then((res) => {
         if (cancel) return;
-        setDirecciones(dirs);
-        const pred = dirs.find((d) => d.es_predeterminada && d.tipo === "ENVIO");
-        if (pred) setIdDireccion(pred.id_direccion);
+        setEncomendistas(res.data);
       })
       .catch(() => undefined);
     return () => {
       cancel = true;
     };
-  }, [logueado, token]);
+  }, []);
+
+  // Al cambiar de encomendista se limpia la dirección seleccionada.
+  React.useEffect(() => {
+    setIdDireccionEncomienda(null);
+  }, [idTransportista]);
 
   if (!hydrated || !authHydrated) {
     return (
@@ -187,16 +194,13 @@ export function CheckoutFlow() {
     );
   }
 
-  const direccionesEnvio = direcciones.filter((d) => d.tipo === "ENVIO");
-
   function validar(): string | null {
     if (!email.trim()) return "Ingresa un correo de contacto.";
     if (tipoDoc === "CREDITO_FISCAL" && (!fiscalNombre || !fiscalNit || !fiscalNrc))
       return "Completa los datos fiscales para crédito fiscal.";
     if (entrega === "ENVIO") {
-      const usaGuardada = logueado && idDireccion;
-      if (!usaGuardada && (!envNombre || !envDir))
-        return "Completa la dirección de envío.";
+      if (!idTransportista || !idDireccionEncomienda || !fechaEntrega)
+        return "Selecciona encomendista, dirección y fecha de entrega.";
     }
     if (!terminos) return "Debes aceptar los términos y condiciones.";
     return null;
@@ -242,7 +246,6 @@ export function CheckoutFlow() {
     }
     setEnviando(true);
 
-    const usaGuardada = logueado && idDireccion;
     const ctx = { token, sessionId: getSessionId() };
 
     const dto: CheckoutDto = {
@@ -254,16 +257,11 @@ export function CheckoutFlow() {
         fiscal_giro: fiscalGiro,
       }),
       metodo_entrega: entrega,
-      ...(entrega === "ENVIO" &&
-        (usaGuardada
-          ? { id_direccion: idDireccion! }
-          : {
-              envio_nombre: envNombre,
-              envio_telefono: envTel,
-              envio_id_municipio: envMunicipio ?? undefined,
-              envio_direccion: envDir,
-              envio_referencia: envRef,
-            })),
+      ...(entrega === "ENVIO" && {
+        id_transportista: idTransportista!,
+        id_transportista_direccion: idDireccionEncomienda!,
+        fecha_entrega: fechaEntrega,
+      }),
       metodo_pago: pago,
       email_contacto: email,
       telefono_contacto: telefono,
@@ -394,58 +392,75 @@ export function CheckoutFlow() {
 
           {entrega === "ENVIO" && (
             <div className="mt-4 space-y-4">
-              {logueado && direccionesEnvio.length > 0 && (
-                <RadioGroup
-                  value={idDireccion ? String(idDireccion) : "nueva"}
-                  onValueChange={(v) =>
-                    setIdDireccion(v === "nueva" ? null : Number(v))
-                  }
-                  className="gap-2"
+              <div>
+                <Label className="mb-1.5 block">Encomendista *</Label>
+                <Select
+                  value={idTransportista ? String(idTransportista) : ""}
+                  onValueChange={(v) => setIdTransportista(Number(v))}
                 >
-                  {direccionesEnvio.map((d) => (
-                    <label
-                      key={d.id_direccion}
-                      className="flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm"
-                    >
-                      <RadioGroupItem value={String(d.id_direccion)} className="mt-0.5" />
-                      <span>
-                        <span className="font-medium">{d.nombre_contacto}</span>
-                        <span className="block text-muted-foreground">
-                          {d.direccion}
-                          {d.municipio_nombre ? `, ${d.municipio_nombre}` : ""}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm">
-                    <RadioGroupItem value="nueva" /> Usar otra dirección
-                  </label>
-                </RadioGroup>
-              )}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un encomendista" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {encomendistas.map((e) => (
+                      <SelectItem
+                        key={e.id_transportista}
+                        value={String(e.id_transportista)}
+                      >
+                        {e.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {(!logueado || !idDireccion) && (
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label className="mb-1.5 block">Nombre de quien recibe *</Label>
-                      <Input value={envNombre} onChange={(e) => setEnvNombre(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="mb-1.5 block">Teléfono</Label>
-                      <Input value={envTel} onChange={(e) => setEnvTel(e.target.value)} />
-                    </div>
-                  </div>
-                  <MunicipioSelect value={envMunicipio} onChange={setEnvMunicipio} />
-                  <div>
-                    <Label className="mb-1.5 block">Dirección *</Label>
-                    <Input value={envDir} onChange={(e) => setEnvDir(e.target.value)} placeholder="Colonia, calle y número" />
-                  </div>
-                  <div>
-                    <Label className="mb-1.5 block">Referencia</Label>
-                    <Input value={envRef} onChange={(e) => setEnvRef(e.target.value)} placeholder="Punto de referencia" />
-                  </div>
-                </div>
-              )}
+              <div>
+                <Label className="mb-1.5 block">Dirección de la encomienda *</Label>
+                <Select
+                  value={idDireccionEncomienda ? String(idDireccionEncomienda) : ""}
+                  onValueChange={(v) => setIdDireccionEncomienda(Number(v))}
+                  disabled={!idTransportista}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        idTransportista
+                          ? "Selecciona una dirección"
+                          : "Primero elige encomendista"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {encomendistas
+                      .find((e) => e.id_transportista === idTransportista)
+                      ?.IaTransportistasDirecciones.map((d) => (
+                        <SelectItem
+                          key={d.id_transportista_direccion}
+                          value={String(d.id_transportista_direccion)}
+                        >
+                          {d.direccion}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="fechaEntrega" className="mb-1.5 block">
+                  Fecha de entrega *
+                </Label>
+                <Input
+                  id="fechaEntrega"
+                  type="date"
+                  value={fechaEntrega}
+                  min={(() => {
+                    const t = new Date();
+                    t.setDate(t.getDate() + 1);
+                    return t.toISOString().slice(0, 10);
+                  })()}
+                  onChange={(e) => setFechaEntrega(e.target.value)}
+                />
+              </div>
             </div>
           )}
 

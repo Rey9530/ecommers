@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Gift } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { IMAGE_URL } from "@/lib/api/client";
 
 interface ProductThumbProps {
   nombre: string;
@@ -31,14 +32,18 @@ export function ProductThumb({
   priority,
 }: ProductThumbProps) {
   if (src) {
+    // Acepta src como ruta relativa (/uploads/...) o URL absoluta (http/https).
+    const isAbsolute = /^https?:\/\//.test(src);
+    const resolved = isAbsolute ? src : `${IMAGE_URL ?? ""}${src}`;
     return (
       <Image
-        src={src}
+        src={resolved}
         alt={nombre}
         fill
         sizes={sizes}
         priority={priority}
         className={cn("object-cover", className)}
+        unoptimized
       />
     );
   }

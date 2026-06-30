@@ -10,7 +10,12 @@
  */
 
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3010";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+/**
+ * URL base para imágenes servidas por el backend (MinIO/ERP).
+ * Requiere el prefijo `NEXT_PUBLIC_` para estar disponible en client components.
+ */
+export const IMAGE_URL = process.env.NEXT_PUBLIC_URL_IMAGE ?? "";
 
 export class ApiError extends Error {
   status: number;
