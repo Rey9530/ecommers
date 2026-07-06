@@ -293,6 +293,8 @@ export interface CheckoutDto {
   id_transportista_direccion?: number;
   /** YYYY-MM-DD. Requerido cuando metodo_entrega === "ENVIO". */
   fecha_entrega?: string;
+  /** Requerido cuando metodo_entrega === "ENVIO". Nombre de quien recibe el envío. */
+  envio_nombre?: string;
   metodo_pago: MetodoPago;
   email_contacto?: string;
   telefono_contacto?: string;

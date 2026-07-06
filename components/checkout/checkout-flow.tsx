@@ -10,6 +10,10 @@ import {
   Landmark,
   HandCoins,
   ArrowRight,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +28,7 @@ import { getSessionId } from "@/lib/session";
 import {
   sincronizarCarrito,
   checkout as checkoutApi,
+  checkoutConComprobante,
   aplicarCupon,
   quitarCupon,
 } from "@/lib/api/pedidos";
@@ -34,7 +39,6 @@ import type {
   Encomendista,
   MetodoEntrega,
   MetodoPago,
-  TipoDocumento,
 } from "@/types";
 
 import { OrderSummary } from "@/components/checkout/order-summary";
@@ -43,14 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
 
@@ -126,16 +123,15 @@ export function CheckoutFlow() {
   // Estado del formulario
   const [email, setEmail] = React.useState("");
   const [telefono, setTelefono] = React.useState("");
-  const [tipoDoc, setTipoDoc] = React.useState<TipoDocumento>("CONSUMIDOR_FINAL");
-  const [fiscalNombre, setFiscalNombre] = React.useState("");
-  const [fiscalNit, setFiscalNit] = React.useState("");
-  const [fiscalNrc, setFiscalNrc] = React.useState("");
-  const [fiscalGiro, setFiscalGiro] = React.useState("");
   const [entrega, setEntrega] = React.useState<MetodoEntrega>("ENVIO");
   const [idTransportista, setIdTransportista] = React.useState<number | null>(null);
   const [idDireccionEncomienda, setIdDireccionEncomienda] = React.useState<number | null>(null);
   const [fechaEntrega, setFechaEntrega] = React.useState("");
+  const [envioNombre, setEnvioNombre] = React.useState("");
   const [pago, setPago] = React.useState<MetodoPago>("TRANSFERENCIA");
+  const [comprobante, setComprobante] = React.useState<File | null>(null);
+  const [comprobanteError, setComprobanteError] = React.useState<string | null>(null);
+  const comprobanteRef = React.useRef<HTMLInputElement>(null);
   const [nota, setNota] = React.useState("");
   const [terminos, setTerminos] = React.useState(false);
   const [enviando, setEnviando] = React.useState(false);
@@ -171,6 +167,20 @@ export function CheckoutFlow() {
     setIdDireccionEncomienda(null);
   }, [idTransportista]);
 
+  // Al cambiar a RETIRO se descarta el nombre de quien recibe.
+  React.useEffect(() => {
+    if (entrega !== "ENVIO") setEnvioNombre("");
+  }, [entrega]);
+
+  // Si cambia a CONTRA_ENTREGA, descartamos el comprobante (ya no aplica).
+  React.useEffect(() => {
+    if (pago !== "TRANSFERENCIA") {
+      setComprobante(null);
+      setComprobanteError(null);
+      if (comprobanteRef.current) comprobanteRef.current.value = "";
+    }
+  }, [pago]);
+
   if (!hydrated || !authHydrated) {
     return (
       <div className="grid gap-8 lg:grid-cols-[1fr_22rem]">
@@ -196,14 +206,48 @@ export function CheckoutFlow() {
 
   function validar(): string | null {
     if (!email.trim()) return "Ingresa un correo de contacto.";
-    if (tipoDoc === "CREDITO_FISCAL" && (!fiscalNombre || !fiscalNit || !fiscalNrc))
-      return "Completa los datos fiscales para crédito fiscal.";
     if (entrega === "ENVIO") {
       if (!idTransportista || !idDireccionEncomienda || !fechaEntrega)
         return "Selecciona encomendista, dirección y fecha de entrega.";
+      if (!envioNombre.trim())
+        return "Ingresa el nombre de quien recibe el envío.";
     }
     if (!terminos) return "Debes aceptar los términos y condiciones.";
+    if (pago === "TRANSFERENCIA" && !comprobante)
+      return "Adjunta el comprobante de la transferencia.";
     return null;
+  }
+
+  const MAX_COMPROBANTE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const MIMES_COMPROBANTE = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+
+  function onComprobanteChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setComprobante(null);
+      setComprobanteError(null);
+      return;
+    }
+    if (!MIMES_COMPROBANTE.includes(file.type)) {
+      setComprobante(null);
+      setComprobanteError("Tipo de archivo no permitido. Usa PDF, JPEG, PNG o WEBP.");
+      if (comprobanteRef.current) comprobanteRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_COMPROBANTE_BYTES) {
+      setComprobante(null);
+      setComprobanteError("El comprobante no puede pesar más de 10 MB.");
+      if (comprobanteRef.current) comprobanteRef.current.value = "";
+      return;
+    }
+    setComprobante(file);
+    setComprobanteError(null);
+  }
+
+  function quitarComprobante() {
+    setComprobante(null);
+    setComprobanteError(null);
+    if (comprobanteRef.current) comprobanteRef.current.value = "";
   }
 
   async function aplicarCuponCheckout() {
@@ -249,18 +293,14 @@ export function CheckoutFlow() {
     const ctx = { token, sessionId: getSessionId() };
 
     const dto: CheckoutDto = {
-      tipo_documento: tipoDoc,
-      ...(tipoDoc === "CREDITO_FISCAL" && {
-        fiscal_nombre: fiscalNombre,
-        fiscal_nit: fiscalNit,
-        fiscal_nrc: fiscalNrc,
-        fiscal_giro: fiscalGiro,
-      }),
+      // Sección "Documento tributario" oculta en UI; siempre enviamos CF.
+      tipo_documento: "CONSUMIDOR_FINAL",
       metodo_entrega: entrega,
       ...(entrega === "ENVIO" && {
         id_transportista: idTransportista!,
         id_transportista_direccion: idDireccionEncomienda!,
         fecha_entrega: fechaEntrega,
+        envio_nombre: envioNombre.trim(),
       }),
       metodo_pago: pago,
       email_contacto: email,
@@ -272,7 +312,10 @@ export function CheckoutFlow() {
       // Carrito local hasta el checkout: sincronizar, reaplicar cupón y crear el pedido.
       await sincronizarCarrito(ctx, items);
       if (cuponAplicado) await aplicarCupon(ctx, cuponAplicado);
-      const pedido = await checkoutApi(ctx, dto);
+      // Si hay comprobante (TRANSFERENCIA), usar endpoint multipart; si no, JSON normal.
+      const pedido = comprobante
+        ? await checkoutConComprobante(ctx, dto, comprobante)
+        : await checkoutApi(ctx, dto);
       setUltimo(pedido);
       clear();
       router.push(`/checkout/confirmacion/${pedido.numero_pedido}`);
@@ -330,49 +373,8 @@ export function CheckoutFlow() {
           </div>
         </Section>
 
-        {/* 2. Documento */}
-        <Section numero={2} titulo="Documento tributario">
-          <RadioGroup
-            value={tipoDoc}
-            onValueChange={(v) => setTipoDoc(v as TipoDocumento)}
-            className="gap-3"
-          >
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <RadioGroupItem value="CONSUMIDOR_FINAL" /> Consumidor final
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <RadioGroupItem value="CREDITO_FISCAL" /> Crédito fiscal (CCF)
-            </label>
-          </RadioGroup>
-
-          {tipoDoc === "CREDITO_FISCAL" && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Label className="mb-1.5 block">Nombre / razón social *</Label>
-                <Input
-                  value={fiscalNombre}
-                  onChange={(e) => setFiscalNombre(e.target.value)}
-                  placeholder="Empresa S.A. de C.V."
-                />
-              </div>
-              <div>
-                <Label className="mb-1.5 block">NIT *</Label>
-                <Input value={fiscalNit} onChange={(e) => setFiscalNit(e.target.value)} placeholder="0614-..." />
-              </div>
-              <div>
-                <Label className="mb-1.5 block">NRC *</Label>
-                <Input value={fiscalNrc} onChange={(e) => setFiscalNrc(e.target.value)} placeholder="123456-7" />
-              </div>
-              <div className="sm:col-span-2">
-                <Label className="mb-1.5 block">Giro</Label>
-                <Input value={fiscalGiro} onChange={(e) => setFiscalGiro(e.target.value)} placeholder="Comercio" />
-              </div>
-            </div>
-          )}
-        </Section>
-
-        {/* 3. Entrega */}
-        <Section numero={3} titulo="Método de entrega">
+        {/* 2. Entrega */}
+        <Section numero={2} titulo="Método de entrega">
           <div className="flex flex-col gap-3 sm:flex-row">
             <OptionCard
               active={entrega === "ENVIO"}
@@ -394,55 +396,51 @@ export function CheckoutFlow() {
             <div className="mt-4 space-y-4">
               <div>
                 <Label className="mb-1.5 block">Encomendista *</Label>
-                <Select
+                <Combobox
+                  options={encomendistas.map((e) => ({
+                    value: String(e.id_transportista),
+                    label: e.nombre.trim() || `Encomendista #${e.id_transportista}`,
+                    hint: e.contacto || undefined,
+                  }))}
                   value={idTransportista ? String(idTransportista) : ""}
-                  onValueChange={(v) => setIdTransportista(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un encomendista" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {encomendistas.map((e) => (
-                      <SelectItem
-                        key={e.id_transportista}
-                        value={String(e.id_transportista)}
-                      >
-                        {e.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setIdTransportista(v ? Number(v) : null)}
+                  placeholder="Selecciona un encomendista"
+                  emptyMessage="No hay encomendistas que coincidan con la búsqueda."
+                  ariaLabel="Buscar y seleccionar encomendista"
+                />
               </div>
 
               <div>
                 <Label className="mb-1.5 block">Dirección de la encomienda *</Label>
-                <Select
-                  value={idDireccionEncomienda ? String(idDireccionEncomienda) : ""}
-                  onValueChange={(v) => setIdDireccionEncomienda(Number(v))}
-                  disabled={!idTransportista}
-                >
-                  <SelectTrigger>
-                    <SelectValue
+                {(() => {
+                  const direcciones =
+                    encomendistas.find(
+                      (e) => e.id_transportista === idTransportista,
+                    )?.IaTransportistasDirecciones ?? [];
+                  return (
+                    <Combobox
+                      options={direcciones.map((d) => ({
+                        value: String(d.id_transportista_direccion),
+                        label: d.direccion.trim() || `Dirección #${d.id_transportista_direccion}`,
+                        hint: d.comentario || undefined,
+                      }))}
+                      value={idDireccionEncomienda ? String(idDireccionEncomienda) : ""}
+                      onChange={(v) => setIdDireccionEncomienda(v ? Number(v) : null)}
                       placeholder={
                         idTransportista
                           ? "Selecciona una dirección"
                           : "Primero elige encomendista"
                       }
+                      emptyMessage={
+                        idTransportista
+                          ? "Este encomendista no tiene direcciones registradas."
+                          : "Elige un encomendista para ver sus direcciones."
+                      }
+                      disabled={!idTransportista}
+                      ariaLabel="Buscar y seleccionar dirección de encomienda"
                     />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {encomendistas
-                      .find((e) => e.id_transportista === idTransportista)
-                      ?.IaTransportistasDirecciones.map((d) => (
-                        <SelectItem
-                          key={d.id_transportista_direccion}
-                          value={String(d.id_transportista_direccion)}
-                        >
-                          {d.direccion}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  );
+                })()}
               </div>
 
               <div>
@@ -461,6 +459,22 @@ export function CheckoutFlow() {
                   onChange={(e) => setFechaEntrega(e.target.value)}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="envioNombre" className="mb-1.5 block">
+                  Nombre de quien recibe *
+                </Label>
+                <Input
+                  id="envioNombre"
+                  value={envioNombre}
+                  onChange={(e) => setEnvioNombre(e.target.value)}
+                  placeholder="Ej. María Pérez"
+                  autoComplete="name"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Persona que retirará el paquete en la dirección de la encomienda.
+                </p>
+              </div>
             </div>
           )}
 
@@ -473,8 +487,8 @@ export function CheckoutFlow() {
           )}
         </Section>
 
-        {/* 4. Pago (B6) */}
-        <Section numero={4} titulo="Método de pago">
+        {/* 3. Pago */}
+        <Section numero={3} titulo="Método de pago">
           <div className="flex flex-col gap-3 sm:flex-row">
             <OptionCard
               active={pago === "TRANSFERENCIA"}
@@ -506,10 +520,67 @@ export function CheckoutFlow() {
               🔒 No almacenamos datos de tarjetas. Pago seguro y sin pasarela.
             </p>
           </div>
+
+          {pago === "TRANSFERENCIA" && (
+            <div className="mt-4">
+              <Label className="mb-1.5 block">
+                Comprobante de transferencia *
+              </Label>
+              <input
+                ref={comprobanteRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={onComprobanteChange}
+              />
+              {comprobante ? (
+                <div className="flex items-center justify-between rounded-lg border bg-success/5 p-3 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    {comprobante.type === "application/pdf" ? (
+                      <FileText className="size-5 shrink-0 text-primary" />
+                    ) : (
+                      <ImageIcon className="size-5 shrink-0 text-primary" />
+                    )}
+                    <span className="truncate">
+                      <span className="block truncate font-medium">
+                        {comprobante.name}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {(comprobante.size / 1024).toFixed(0)} KB · listo para enviar
+                      </span>
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={quitarComprobante}
+                    aria-label="Quitar comprobante"
+                    className="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => comprobanteRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-foreground"
+                >
+                  <Upload className="size-4" />
+                  Adjuntar PDF o imagen (máx. 10 MB)
+                </button>
+              )}
+              {comprobanteError && (
+                <p className="mt-1 text-xs text-destructive">{comprobanteError}</p>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aceptamos PDF, JPEG, PNG o WEBP. Se enviará al confirmar el pedido.
+              </p>
+            </div>
+          )}
         </Section>
 
-        {/* 5. Nota + términos */}
-        <Section numero={5} titulo="Revisión y confirmación">
+        {/* 4. Nota + términos */}
+        <Section numero={4} titulo="Revisión y confirmación">
           <Label htmlFor="nota" className="mb-1.5 block">
             Nota para el pedido (opcional)
           </Label>

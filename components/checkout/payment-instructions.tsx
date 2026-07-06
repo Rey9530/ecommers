@@ -1,14 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Landmark, HandCoins, Upload, Copy, Check, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Landmark, HandCoins, Copy, Check } from "lucide-react";
 
 import { formatPrice } from "@/lib/utils";
 import type { Pedido } from "@/types";
-import { useAuthStore } from "@/lib/store/auth-store";
-import { subirComprobante } from "@/lib/api/pedidos";
-import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 
 const BANCO = {
@@ -19,40 +15,12 @@ const BANCO = {
 };
 
 export function PaymentInstructions({ pedido }: { pedido: Pedido }) {
-  const token = useAuthStore((s) => s.token);
   const [copiado, setCopiado] = React.useState(false);
-  const [subido, setSubido] = React.useState(false);
-  const [subiendo, setSubiendo] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
 
   function copiar() {
     navigator.clipboard?.writeText(BANCO.cuenta);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1500);
-  }
-
-  async function onArchivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSubiendo(true);
-    try {
-      await subirComprobante(
-        pedido.numero_pedido,
-        { token, email: token ? undefined : pedido.email_contacto },
-        file
-      );
-      setSubido(true);
-      toast.success("Comprobante recibido", {
-        description: "Verificaremos tu pago en breve.",
-      });
-    } catch (err) {
-      toast.error("No se pudo subir el comprobante", {
-        description: err instanceof ApiError ? err.message : undefined,
-      });
-    } finally {
-      setSubiendo(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
   }
 
   if (pedido.metodo_pago === "CONTRA_ENTREGA") {
@@ -79,8 +47,8 @@ export function PaymentInstructions({ pedido }: { pedido: Pedido }) {
       <p className="mt-2 text-sm text-muted-foreground">
         Transfiere{" "}
         <strong className="text-foreground">{formatPrice(pedido.total)}</strong> a la
-        siguiente cuenta y sube tu comprobante. Tu pedido se procesará al
-        confirmar el pago.
+        siguiente cuenta. Adjuntaste el comprobante junto con el pedido, así que
+        solo queda esperar la verificación del pago.
       </p>
 
       <dl className="mt-4 space-y-2 rounded-lg bg-muted/40 p-4 text-sm">
@@ -120,33 +88,10 @@ export function PaymentInstructions({ pedido }: { pedido: Pedido }) {
         </div>
       </dl>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        className="hidden"
-        onChange={onArchivo}
-      />
-      <Button
-        variant={subido ? "outline" : "default"}
-        className="mt-4 w-full"
-        disabled={subiendo}
-        onClick={() => inputRef.current?.click()}
-      >
-        {subiendo ? (
-          <>
-            <Loader2 className="animate-spin" /> Subiendo…
-          </>
-        ) : subido ? (
-          <>
-            <Check /> Comprobante enviado · subir otro
-          </>
-        ) : (
-          <>
-            <Upload /> Subir comprobante de pago
-          </>
-        )}
-      </Button>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Si necesitas reemplazar el comprobante, contáctanos por WhatsApp
+        indicando tu número de pedido.
+      </p>
     </div>
   );
 }

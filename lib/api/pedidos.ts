@@ -82,6 +82,53 @@ export function checkout(ctx: AuthCtx, dto: CheckoutDto): Promise<Pedido> {
   });
 }
 
+/**
+ * POST /tienda/pedidos/checkout-with-comprobante — multipart/form-data.
+ * Mismo flujo que `checkout` pero permite adjuntar el comprobante de pago
+ * (PDF/imagen) en el mismo submit. Útil para TRANSFERENCIA donde el
+ * comprobante es obligatorio.
+ *
+ * Campos:
+ *   - `data`: JSON.stringify del CheckoutDto
+ *   - `comprobante` (opcional): File (PDF/JPEG/PNG/WEBP, ≤10MB)
+ *
+ * Usa fetch directo porque el wrapper `api()` envía JSON.
+ */
+export async function checkoutConComprobante(
+  ctx: AuthCtx,
+  dto: CheckoutDto,
+  file?: File | null,
+): Promise<Pedido> {
+  const base = API_URL.replace(/\/$/, "");
+  const url = new URL(`${base}/tienda/pedidos/checkout-with-comprobante`);
+
+  const form = new FormData();
+  form.append("data", JSON.stringify(dto));
+  if (file) form.append("comprobante", file);
+
+  const headers: Record<string, string> = {};
+  if (ctx.token) headers["Authorization"] = `Bearer ${ctx.token}`;
+  if (ctx.sessionId) headers["x-session-id"] = ctx.sessionId;
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), { method: "POST", headers, body: form });
+  } catch {
+    throw new ApiError("No se pudo conectar con el servidor.", 0);
+  }
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const raw = json?.message;
+    const msg = Array.isArray(raw)
+      ? raw.join(", ")
+      : typeof raw === "string"
+        ? raw
+        : `Error ${res.status}`;
+    throw new ApiError(msg, res.status);
+  }
+  return (json && "data" in json ? json.data : json) as Pedido;
+}
+
 // GET /tienda/pedidos (Bearer)
 export function getMisPedidos(token: string): Promise<Pedido[]> {
   return api<Pedido[]>("/tienda/pedidos", { token });
