@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 #
 # Multi-stage Dockerfile para Next.js ecommerce
-# - Stage deps:    instala deps con pnpm (lockfileVersion 9.0)
+# - Stage deps:    instala deps con pnpm (requerido por pnpm-workspace.yaml
+#                  que usa sintaxis de pnpm 10: `allowBuilds`)
 # - Stage builder: compila Next con output: 'standalone'
 # - Stage runner:  imagen final mínima, usuario no-root, ~150 MB
 #
@@ -16,8 +17,9 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# pnpm v9 (compatible con pnpm-lock.yaml del proyecto) sin depender de corepack
-RUN npm install -g pnpm@9
+# pnpm v10: requerido por pnpm-workspace.yaml del proyecto (campo `allowBuilds`
+# es sintaxis nueva de pnpm 10; pnpm 9 falla con "packages field missing or empty")
+RUN npm install -g pnpm@10
 
 # Copiamos solo manifests para aprovechar cache de capas
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -36,7 +38,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production
 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 # Reutilizar node_modules del stage anterior (más rápido que re-instalar)
 COPY --from=deps /app/node_modules ./node_modules
