@@ -1,0 +1,47 @@
+# ==============================================================================
+# docker-compose.yaml — Storefront ecommerce (producción)
+# Imagen: docker.io/reyles/ecommerce (publicada por
+#          .github/workflows/ecommerce-docker.yml en cada push a main)
+#
+# Uso en el servidor:
+#   docker compose pull                  # descarga la imagen desde Docker Hub
+#   docker compose up -d                 # levanta el contenedor en background
+#   docker compose logs -f ecom-app      # seguir logs en vivo
+#   docker compose restart ecom-app      # reiniciar (p. ej. tras un pull nuevo)
+#   docker compose down                  # apagar y eliminar contenedor
+#
+# Variables opcionales (definir en .env al lado de este archivo, o vía shell):
+#   PORT       puerto del host mapeado al contenedor (default 3000)
+#   IMAGE_TAG  tag concreto de la imagen (default "latest")
+#              Para producción pinneada usa, p. ej.: IMAGE_TAG=sha-aa8219a
+# ==============================================================================
+
+version: '3.9'
+
+services:
+  ecom-app:
+    image: docker.io/reyles/ecommerce:${IMAGE_TAG:-latest}
+    container_name: ecom-app
+    restart: always
+    ports:
+      - "${PORT:-3000}:3000"
+
+    # La imagen ya lleva embebidas:
+    #   - NEXT_PUBLIC_API_URL (horneada en el bundle del cliente en build-time)
+    #   - TZ=America/El_Salvador
+    #   - NODE_ENV=production
+    #   - HOSTNAME=0.0.0.0
+    #   - Usuario no-root (nextjs:1001)
+    # Si en algún caso necesitas reemplazar NEXT_PUBLIC_API_URL en runtime,
+    # descomenta el bloque "environment" de abajo.
+    #
+    # environment:
+    #   - NEXT_PUBLIC_API_URL=https://otro-backend.example.com
+
+    networks:
+      - ecom-net
+
+networks:
+  ecom-net:
+    name: ecom-net
+    driver: bridge
