@@ -2,7 +2,13 @@ import Image from "next/image";
 import { Gift } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { IMAGE_URL } from "@/lib/api/client";
+
+/**
+ * URL base para imágenes externas. Quemada a propósito: el `.env`
+ * no se estaba leyendo correctamente, así que se deja como constante
+ * aquí hasta que se solucione el problema de variables de entorno.
+ */
+const BASE_IMAGE_URL = "https://archivos.helixsys.dev/ar3";
 
 interface ProductThumbProps {
   nombre: string;
@@ -34,7 +40,7 @@ export function ProductThumb({
   if (src) {
     // Acepta src como ruta relativa (/uploads/...) o URL absoluta (http/https).
     const isAbsolute = /^https?:\/\//.test(src);
-    const resolved = isAbsolute ? src : `${IMAGE_URL ?? ""}${src}`;
+    const resolved = isAbsolute ? src : `${BASE_IMAGE_URL}${src}`;
     return (
       <Image
         src={resolved}
