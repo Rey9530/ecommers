@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * no se estaba leyendo correctamente, así que se deja como constante
  * aquí hasta que se solucione el problema de variables de entorno.
  */
-const BASE_IMAGE_URL = "https://archivos.helixsys.dev/ar3";
+const BASE_IMAGE_URL = "https://archivos.helixsys.dev/ar3/";
 
 interface ProductThumbProps {
   nombre: string;
